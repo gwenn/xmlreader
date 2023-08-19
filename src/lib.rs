@@ -130,7 +130,6 @@ impl<'input> StreamReader<'input> {
         Ok(t)
     }
 
-    #[inline]
     fn text_pos_at(&self, token: &Option<Token>) -> Option<TextPos> {
         if let Some(ref token) = token {
             let span = match token {
