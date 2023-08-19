@@ -429,6 +429,10 @@ mod test {
         assert_eq!(sr.depth(), 0);
         assert_eq!(sr.local_name()?, "root");
         assert!(sr.next()?.is_none());
+        let mut sr = StreamReader::from("<a><a/></a>");
+        sr.next()?;
+        sr.skip_element()?;
+        assert!(sr.next()?.is_none());
         Ok(())
     }
 
