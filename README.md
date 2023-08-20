@@ -1,3 +1,6 @@
+[![Build Status](https://github.com/gwenn/xmlreader/workflows/Rust/badge.svg)](https://github.com/gwenn/xmlreader/actions)
+[![dependency status](https://deps.rs/repo/github/gwenn/xmlreader/status.svg)](https://deps.rs/repo/github/gwenn/xmlreader)
+
 XML stream reader on top of [xmlparser](https://github.com/RazrFalcon/xmlparser).
 
 API is similar to:
