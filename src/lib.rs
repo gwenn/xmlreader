@@ -2,6 +2,9 @@
 //! Like https://gnome.pages.gitlab.gnome.org/libxml2/devhelp/libxml2-xmlreader.html
 //! Like https://www.javadoc.io/static/org.codehaus.woodstox/stax2-api/4.2.1/org/codehaus/stax2/XMLStreamReader2.html
 //! Like https://learn.microsoft.com/en-us/dotnet/api/system.xml.xmltextreader?view=net-7.0
+#![warn(missing_docs)]
+
+use std::ops::{Deref, DerefMut};
 use std::vec::Vec;
 use xmlparser::{self, ElementEnd, Tokenizer};
 pub use xmlparser::{TextPos, Token};
@@ -83,6 +86,7 @@ impl<'input> StreamReader<'input> {
             )
         )
     }
+
     fn is_empty_token(&self) -> bool {
         matches!(
             self.t,
@@ -99,7 +103,10 @@ impl<'input> StreamReader<'input> {
                 while let Some(t) = self.next_token()? {
                     match t {
                         Token::Attribute { .. } => self.attrs.push(t),
-                        _ => self.t = Some(t),
+                        _ => {
+                            self.t = Some(t);
+                            break;
+                        }
                     }
                 }
                 Ok(())
@@ -159,6 +166,7 @@ impl StreamReader<'_> {
         self.fill_attrs()?;
         Ok(self.attrs.len())
     }
+
     /// name of `i`th attribute
     pub fn attribute_name(&mut self, i: usize) -> Result<Option<&str>> {
         self.fill_attrs()?;
@@ -167,6 +175,7 @@ impl StreamReader<'_> {
             _ => None,
         }))
     }
+
     /// value of `i`th attribute
     pub fn attribute_value(&mut self, i: usize) -> Result<Option<&str>> {
         self.fill_attrs()?;
@@ -175,6 +184,7 @@ impl StreamReader<'_> {
             _ => None,
         }))
     }
+
     /// value of attribute named `name` (local name)
     pub fn attribute(&mut self, name: &str) -> Result<Option<&str>> {
         self.fill_attrs()?;
@@ -229,6 +239,7 @@ impl StreamReader<'_> {
             Ok(txt)
         }
     }
+
     //fn event_type(&self) ->
     /// `true` if the current token has a name
     pub fn has_name(&self) -> bool {
@@ -243,6 +254,7 @@ impl StreamReader<'_> {
             )
         )
     }
+
     /// return the (local) name of the current token,
     /// an error is thrown if this is not a named element.
     // https://gnome.pages.gitlab.gnome.org/libxml2/devhelp/libxml2-xmlreader.html#xmlTextReaderLocalName
@@ -290,7 +302,15 @@ impl StreamReader<'_> {
         }
         Ok(self.t)
     }
-    //fn next_tag(&mut self) -> Result<Option<Token>> {
+
+    /// go to next tag
+    pub fn next_tag(&mut self) -> Result<Option<Token>> {
+        self.next()?;
+        while !matches!(self.t, Some(Token::ElementStart { .. }) | None) {
+            self.next()?;
+        }
+        Ok(self.t)
+    }
 
     /// skip all the contents of the current element
     pub fn skip_element(&mut self) -> Result<()> {
@@ -320,6 +340,7 @@ impl StreamReader<'_> {
             Some(Token::Text { .. } | Token::Cdata { .. } | Token::Comment { .. })
         )
     }
+
     /// return the current token's string,
     /// an error is thrown if this kind of token has no text.
     pub fn text(&self) -> Result<&str> {
@@ -329,6 +350,92 @@ impl StreamReader<'_> {
             ) => Ok(text.as_str()),
             _ => Err(Error::Unexpected(self.text_pos_at(&self.t))), // FIXME create specific error
         }
+    }
+}
+
+/// Sub-tree reader
+pub struct SubTreeReader<'input, 'l> {
+    sr: &'l mut StreamReader<'input>,
+    initial_depth: usize,
+    eos: bool,
+}
+
+impl<'input, 'l> SubTreeReader<'input, 'l> {
+    /// constructor
+    pub fn new(sr: &'l mut StreamReader<'input>) -> Result<SubTreeReader<'input, 'l>> {
+        let initial_depth = if matches!(
+            sr.t,
+            Some(Token::ElementStart { .. } | Token::Attribute { .. })
+        ) {
+            sr.depth()
+        } else if matches!(
+            sr.t,
+            Some(Token::ElementEnd {
+                end: ElementEnd::Open,
+                ..
+            })
+        ) {
+            sr.depth() - 1
+        } else {
+            return Err(Error::Unexpected(sr.text_pos_at(&sr.t))); // FIXME create specific error
+        };
+        Ok(SubTreeReader {
+            sr,
+            initial_depth,
+            eos: false,
+        })
+    }
+
+    /// get next token
+    pub fn next(&mut self) -> Result<Option<Token>> {
+        if self.is_eos() {
+            return Ok(None);
+        }
+        self.sr.next()?;
+        Ok(self.sr.t)
+    }
+
+    /// go to next tag
+    pub fn next_tag(&mut self) -> Result<Option<Token>> {
+        self.next()?;
+        while !self.eos && !matches!(self.sr.t, Some(Token::ElementStart { .. }) | None) {
+            self.next()?;
+        }
+        Ok(if self.eos { None } else { self.sr.t })
+    }
+
+    fn is_eos(&mut self) -> bool {
+        if self.eos {
+            return true;
+        }
+        if let Some(t) = self.sr.t {
+            if self.sr.depth == self.initial_depth {
+                if let Token::ElementEnd {
+                    end: ElementEnd::Empty | ElementEnd::Close(..),
+                    ..
+                } = t
+                {
+                    self.eos = true;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
+impl<'input, 'l> Deref for SubTreeReader<'input, 'l> {
+    type Target = StreamReader<'input>;
+
+    #[inline]
+    fn deref(&self) -> &StreamReader<'input> {
+        self.sr
+    }
+}
+impl<'input, 'l> DerefMut for SubTreeReader<'input, 'l> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut StreamReader<'input> {
+        self.sr
     }
 }
 
