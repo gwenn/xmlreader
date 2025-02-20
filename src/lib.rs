@@ -424,7 +424,7 @@ impl<'input, 'l> SubTreeReader<'input, 'l> {
     }
 }
 
-impl<'input, 'l> Deref for SubTreeReader<'input, 'l> {
+impl<'input> Deref for SubTreeReader<'input, '_> {
     type Target = StreamReader<'input>;
 
     #[inline]
@@ -432,7 +432,7 @@ impl<'input, 'l> Deref for SubTreeReader<'input, 'l> {
         self.sr
     }
 }
-impl<'input, 'l> DerefMut for SubTreeReader<'input, 'l> {
+impl<'input> DerefMut for SubTreeReader<'input, '_> {
     #[inline]
     fn deref_mut(&mut self) -> &mut StreamReader<'input> {
         self.sr
