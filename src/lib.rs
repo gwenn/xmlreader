@@ -138,7 +138,7 @@ impl<'input> StreamReader<'input> {
     }
 
     fn text_pos_at(&self, token: &Option<Token>) -> Option<TextPos> {
-        if let Some(ref token) = token {
+        if let Some(token) = token {
             let span = match token {
                 Token::Declaration { span, .. } => span,
                 Token::ProcessingInstruction { span, .. } => span,
